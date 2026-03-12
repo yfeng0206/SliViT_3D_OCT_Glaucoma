@@ -1,0 +1,24 @@
+data/
+checkpoints/
+__pycache__/
+*.pyc
+*.egg-info/
+.cache/
+# Ignore checkpoints outside weights/
+checkpoints/*.pt
+
+# Debug/one-off scripts (not part of the pipeline)
+src/check_results.py
+src/debug_auth.py
+src/fetch_results.py
+src/grab_results.py
+
+# Config files with cloud-specific settings
+configs/eval_*.yml
+configs/debug_*.yml
+configs/check_*.yml
+configs/fetch_*.yml
+configs/grab_*.yml
+
+# Old download script
+scripts/download_and_upload.py

@@ -1,0 +1,22 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+experiment_name: slivit-glaucoma-fairvision
+display_name: p1-slices32-vit-head
+description: "Phase 1: frozen FE, train ViT+head, 32 slices"
+compute: azureml:YOUR_COMPUTE_NAME
+identity:
+  type: user_identity
+environment: azureml:AzureML-ACPT-pytorch-1.13-py38-cuda11.7-gpu@latest
+code: ../src
+resources:
+  instance_count: 1
+  shm_size: "16g"
+environment_variables:
+  PHASE: "1"
+  NUM_SLICES: "32"
+  EPOCHS: "20"
+  BATCH_SIZE: "4"
+  LR_VIT: "2e-5"
+  LR_HEAD: "1e-4"
+  PATIENCE: "5"
+command: bash run.sh

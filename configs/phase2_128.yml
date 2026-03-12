@@ -1,0 +1,23 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+experiment_name: slivit-glaucoma-fairvision
+display_name: p2-slices128-full-finetune
+description: "Phase 2: full fine-tune, 128 slices"
+compute: azureml:YOUR_COMPUTE_NAME
+identity:
+  type: user_identity
+environment: azureml:AzureML-ACPT-pytorch-1.13-py38-cuda11.7-gpu@latest
+code: ../src
+resources:
+  instance_count: 1
+  shm_size: "16g"
+environment_variables:
+  PHASE: "2"
+  NUM_SLICES: "100"
+  EPOCHS: "25"
+  BATCH_SIZE: "1"
+  LR_FE: "1e-6"
+  LR_VIT: "5e-6"
+  LR_HEAD: "5e-5"
+  PATIENCE: "5"
+command: bash run.sh
