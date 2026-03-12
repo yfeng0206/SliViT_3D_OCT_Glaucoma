@@ -152,3 +152,7 @@ Things that could push past the 0.87 ceiling:
 32 uniformly sampled B-scans from one OCT volume (non-glaucoma):
 
 ![OCT Slices](sample_slices.png)
+
+Vertically tiled input images at 32, 64, and 128 slices (what the model actually sees):
+
+![Tiled Comparison](tiled_comparison.png)
