@@ -2,23 +2,54 @@
 
 Reproducing the [SLIViT](https://github.com/cozygene/SLIViT) architecture for binary glaucoma classification on [Harvard FairVision](https://github.com/Harvard-Ophthalmology-AI-Lab/FairVision) OCT data.
 
-## Background
+## Results Summary
 
-### How SLIViT works
+| Method | Slices | LR config | Dropout | Eff Batch | Test AUC |
+|--------|--------|-----------|---------|-----------|----------|
+| **SLIViT Phase 2, Run 3** | **32** | **5e-6 / 1e-5 / 5e-5** | **0.10** | **8** | **0.869** |
+| SLIViT Phase 2, Run 4 | 64 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 4 | 0.868 |
+| SLIViT Phase 2, Run 5 | 64 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 16 | 0.866 |
+| SLIViT Phase 2, Run 6 | 32 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 16 | 0.864 |
+| SLIViT Phase 1, Run 2 | 32 | 2e-5 / 1e-4 (vit/head) | 0.0 | 16 | N/A (val 0.832) |
+| SLIViT Phase 1, Run 1 | 32 | 5e-5 / 5e-5 (vit/head) | 0.0 | 16 | N/A (val 0.831) |
+| *I-JEPA (ours)* | *32* | *—* | *—* | *—* | *0.828* |
 
-SLIViT classifies 3D medical volumes without a full 3D CNN by slicing the volume into 2D images and processing them in stages:
+*I-JEPA result from our [sibling project](https://github.com/yfeng0206/I-JEPA) using ViT-B/16 with ImageNet-initialized SSL pretraining + fine-tuning.*
 
-**Stage 1: ConvNeXt-Tiny (feature extractor).** A 2D CNN that processes each OCT slice independently to extract spatial features (retinal layer boundaries, thickness patterns, etc). Pretrained on ImageNet, then on the [Kermany OCT dataset](https://data.mendeley.com/datasets/rscbjbr9sj/2) (84K retinal OCT images: CNV, DME, drusen, normal).
+![Test AUC](results/test_auc_comparison.png)
 
-**Stage 2: ViT (integrator).** A Vision Transformer that takes per-slice features from ConvNeXt and learns cross-slice relationships. Randomly initialized.
+## Key Findings
 
-**Stage 3: Classification head.** `LayerNorm + Linear(256, 1)`, outputs a single logit.
+1. **Full fine-tuning is the key lever.** Unfreezing ConvNeXt pushed test AUC from ~0.83 (Phase 1) to 0.869 (Phase 2), confirming that Kermany-pretrained features alone are insufficient for glaucoma.
 
-### Why start with a frozen feature extractor?
+2. **32 slices is enough.** Controlled comparison (Runs 5 vs 6, identical hyperparameters): 64 slices gave 0.866 vs 32 slices at 0.864 — negligible difference at 5x the training cost.
 
-The ConvNeXt already knows OCT from Kermany pretraining, so freezing it and only training the ViT+head is cheaper and safer. This capped at ~0.83 AUC because glaucoma has its own patterns (RNFL thinning, optic nerve changes) that the frozen features can't capture. Unfreezing for Phase 2 pushed test AUC to 0.87.
+3. **Higher LRs found a better optimum.** Run 3's aggressive LRs (5e-6/1e-5/5e-5) peaked early (epoch 4) but reached the best test AUC. Early stopping captured the sweet spot.
 
-### The dataset
+4. **Overfitting is the main bottleneck.** Train loss ~0.04 vs val loss >1.0 by end of training. Root cause: 50M trainable params on 6K images, with 33M in unnecessary projection layers.
+
+5. **20-head projection waste.** `vit_dim=256` doesn't divide by 20 heads, forcing 256-to-1280 projections. Switching to 16 heads would cut trainable params from 50M to ~15M.
+
+## Quick Links
+
+| | |
+|---|---|
+| **Experiments** | [All experiments](docs/experiments) |
+| **Phase 1** | [Frozen ConvNeXt experiments](docs/experiments/phase1) (2 runs) |
+| **Phase 2** | [Full fine-tuning experiments](docs/experiments/phase2) (4 runs) |
+| **Architecture** | [Model architecture details](docs/architecture.md) |
+
+## Architecture
+
+SLIViT classifies 3D OCT volumes without a 3D CNN by slicing the volume into 2D images and processing them in a pipeline:
+
+1. **ConvNeXt-Tiny** (feature extractor) — processes each OCT slice independently. Pretrained on ImageNet, then on the Kermany OCT dataset (84K retinal OCT images).
+2. **ViT** (integrator) — takes per-slice features and learns cross-slice relationships. 5 layers, 20 heads, dim 256.
+3. **Classification head** — `LayerNorm + Linear(256, 1)`, outputs a single logit.
+
+Total: 77.8M params (27.8M ConvNeXt, 50M ViT + projections + head). See [full architecture details](docs/architecture.md).
+
+## Dataset
 
 Glaucoma subset of [Harvard FairVision](https://github.com/Harvard-Ophthalmology-AI-Lab/FairVision):
 - 10,000 subjects, each with a 200x200x200 OCT volume (`.npz`)
@@ -28,86 +59,7 @@ Glaucoma subset of [Harvard FairVision](https://github.com/Harvard-Ophthalmology
 
 ~63GB compressed, available on [HuggingFace](https://huggingface.co/datasets/ming0100/Harvard_FairVision) (`dataset-004.zip`).
 
-## Architecture details
-
-```
-OCT Volume (200x200x200)
-  -> Sample N slices uniformly (we tested 32, 64, 100)
-  -> Resize each to 256x256, convert grayscale to 3-channel
-  -> Tile vertically into one tall image: 3 x (Nx256) x 256
-  -> ConvNeXt-Tiny (ImageNet -> Kermany OCT pretrained)
-  -> N feature maps of 768x64 each
-  -> Linear projection: 49152-d -> 256-d per token
-  -> ViT encoder (5 layers, 20 heads, dim_head=64, mlp_dim=512)
-  -> CLS token -> LayerNorm -> Linear(256, 1) -> logit
-```
-
-Total: 77.8M params (27.8M ConvNeXt, 50M ViT + projections + head).
-
-Since `vit_dim=256` doesn't divide evenly by 20 heads, each transformer block needs projection layers (256 to 1280 and back), accounting for ~33M of the 50M trainable params. Switching to 16 heads would eliminate these and drop trainable params to ~15M.
-
-## Results
-
-### Phase 1: Frozen feature extractor, train ViT + head only
-
-| Run | Slices | LR (vit / head) | Dropout | Eff Batch | Val AUC | Test AUC | Best Epoch |
-|-----|--------|-----------------|---------|-----------|---------|----------|------------|
-| 1 | 32 | 5e-5 / 5e-5 | 0.0 | 16 | 0.831 | N/A | 6 |
-| 2 | 32 | 2e-5 / 1e-4 | 0.0 | 16 | 0.832 | N/A | 6 |
-
-### Phase 2: Full fine-tuning, all parameters trainable
-
-| Run | Slices | LR (fe / vit / head) | Dropout | Batch/GPU | Accum | Eff Batch | Val AUC | Test AUC | Best Epoch |
-|-----|--------|----------------------|---------|-----------|-------|-----------|---------|----------|------------|
-| 3 | 32 | 5e-6 / 1e-5 / 5e-5 | 0.10 | 2 | N/A | 8 | 0.846 | **0.869** | 4 |
-| 4 | 64 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 1 | N/A | 4 | 0.841 | 0.868 | 6 |
-| 5 | 64 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 2 | 2 | 16 | 0.845 | 0.866 | 9 |
-| 6 | 32 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 2 | 2 | 16 | 0.840 | 0.864 | 7 |
-
-## What we tried and why
-
-### Phase 1 experiments (Runs 1-2)
-
-Started with SLIViT defaults, frozen ConvNeXt. Run 1 used a single LR (5e-5) and hit 0.831 val AUC. Run 2 split the LR (head 1e-4, ViT 2e-5) with no meaningful improvement (0.832). The bottleneck was the frozen features, not the learning rate.
-
-### Moving to full fine-tuning (Run 3)
-
-Unfroze the ConvNeXt with a low LR (5e-6) to preserve the Kermany pretrained weights, ViT at 1e-5, head at 5e-5. Added dropout (0.1) for the now-78M parameter model. Best result: 0.846 val / **0.869 test AUC**.
-
-### More slices and lower LR (Run 4)
-
-Tried 64 slices for denser coverage. Dropped LRs (ConvNeXt 1e-6, ViT 5e-6) and bumped dropout to 0.15 to combat overfitting. Had to reduce batch to 1/GPU due to VRAM. Result: 0.868 test AUC, essentially the same as 32 slices, but the comparison is confounded by multiple simultaneous changes.
-
-### Fixing the batch size confound (Runs 5-6)
-
-Used gradient accumulation (2 steps) with bs=2/GPU for an effective batch of 16. Ran 32 and 64 slices with identical hyperparameters. Results: 0.866 vs 0.864, a negligible difference. **32 slices is enough.**
-
-### Best run was our first Phase 2 attempt
-
-Run 3's higher LRs reached a better optimum faster despite earlier overfitting (best epoch 4 vs 7-9). Early stopping captured the peak, making the aggressive LR worthwhile.
-
-### The overfitting problem
-
-Every run follows the same pattern: val loss starts climbing after epoch 4-6. By end of training, train loss ~0.04 vs val loss >1.0. Dropout, lower LRs, and per-component LRs all helped marginally but didn't solve it. The root cause is likely 50M trainable params on only 6K images, with 33M of those in projection layers that could be eliminated by using 16 heads.
-
-## Training setup
-
-**Hardware:** 4x NVIDIA T4 (16GB each)
-
-**Timing:**
-- 32 slices, bs=2/GPU: ~5 min/epoch, ~1 hour per run
-- 64 slices, bs=1/GPU: ~24 min/epoch, 4-5 hours per run
-
-**Stack:** PyTorch 1.13.1, CUDA 11.7, HuggingFace Transformers, 4-GPU DDP with fp16.
-
-**Training config:**
-- AdamW, weight decay 0.01
-- Cosine LR with 3-epoch warmup
-- BCEWithLogitsLoss
-- Early stopping on val AUC, patience=5
-- ConvNeXt from [SLIViT's checkpoint](https://drive.google.com/drive/folders/1f8P3g8ofBTWMFiuNS8vc01s98HyS7oRT)
-
-## Project structure
+## Project Structure
 
 ```
 src/
@@ -130,9 +82,17 @@ configs/
 
 scripts/
   download_hf.py     Downloads the dataset from HuggingFace
+
+docs/
+  architecture.md    Model architecture details
+  experiments/       Detailed experiment logs & analysis
+    phase1/          Frozen ConvNeXt experiments (Runs 1-2)
+    phase2/          Full fine-tuning experiments (Runs 3-6)
+
+results/             Training curves, plots, raw data
 ```
 
-## What's next
+## What's Next
 
 Things that could push past the 0.87 ceiling:
 

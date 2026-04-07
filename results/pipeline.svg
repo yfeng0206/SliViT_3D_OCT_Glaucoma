@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 750" font-family="Segoe UI, sans-serif">
+  <defs>
+    <!-- Data (purple) -->
+    <linearGradient id="gData" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9b72cf"/>
+      <stop offset="100%" stop-color="#7c52b8"/>
+    </linearGradient>
+    <!-- Frozen/pretrained (blue) -->
+    <linearGradient id="gFrozen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5b9bd5"/>
+      <stop offset="100%" stop-color="#3a7cc0"/>
+    </linearGradient>
+    <!-- Trainable (orange) -->
+    <linearGradient id="gTrain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4a942"/>
+      <stop offset="100%" stop-color="#e08c28"/>
+    </linearGradient>
+    <!-- Output (green) -->
+    <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5ec269"/>
+      <stop offset="100%" stop-color="#3da650"/>
+    </linearGradient>
+    <!-- Drop shadow -->
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2.5" flood-opacity="0.12"/>
+    </filter>
+    <!-- Arrow marker -->
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="750" rx="8" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="360" y="34" text-anchor="middle" font-size="17" font-weight="700" fill="#2d2d2d">SLIViT Architecture Pipeline</text>
+
+  <!-- ================================================================ -->
+  <!-- STEP 1: OCT Volume -->
+  <!-- ================================================================ -->
+  <rect x="195" y="54" width="330" height="52" rx="8" fill="url(#gData)" filter="url(#shadow)"/>
+  <text x="360" y="76" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">OCT Volume</text>
+  <text x="360" y="93" text-anchor="middle" font-size="10.5" fill="#f0e6ff">200 x 200 x 200 B-scans</text>
+
+  <!-- Arrow 1-2 -->
+  <line x1="360" y1="106" x2="360" y2="122" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 2: Sample N Slices -->
+  <!-- ================================================================ -->
+  <rect x="195" y="126" width="330" height="52" rx="8" fill="url(#gData)" filter="url(#shadow)"/>
+  <text x="360" y="148" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">Sample N Slices</text>
+  <text x="360" y="165" text-anchor="middle" font-size="10.5" fill="#f0e6ff">32 uniform slices, resize 256x256, grayscale to 3-ch</text>
+
+  <!-- Arrow 2-3 -->
+  <line x1="360" y1="178" x2="360" y2="194" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 3: Tile Vertically -->
+  <!-- ================================================================ -->
+  <rect x="195" y="198" width="330" height="52" rx="8" fill="url(#gData)" filter="url(#shadow)"/>
+  <text x="360" y="220" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">Tile Vertically</text>
+  <text x="360" y="237" text-anchor="middle" font-size="10.5" fill="#f0e6ff">3 x 8192 x 256  (32 slices stacked)</text>
+
+  <!-- Arrow 3-4 -->
+  <line x1="360" y1="250" x2="360" y2="266" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 4: ConvNeXt-Tiny (frozen/blue) -->
+  <!-- ================================================================ -->
+  <rect x="145" y="270" width="430" height="62" rx="8" fill="url(#gFrozen)" filter="url(#shadow)"/>
+  <text x="360" y="293" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">ConvNeXt-Tiny  (Slice Encoder)</text>
+  <text x="360" y="310" text-anchor="middle" font-size="10.5" fill="#dce9f7">27.8M params | Kermany OCT pretrained | frozen Phase 1 / fine-tuned Phase 2</text>
+  <text x="360" y="325" text-anchor="middle" font-size="10" fill="#c5daf0">output: N x 768 x 8 x 8</text>
+
+  <!-- Arrow 4-5 -->
+  <line x1="360" y1="332" x2="360" y2="348" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 5: Flatten + Project (trainable/orange) -->
+  <!-- ================================================================ -->
+  <rect x="175" y="352" width="370" height="52" rx="8" fill="url(#gTrain)" filter="url(#shadow)"/>
+  <text x="360" y="374" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">Flatten + Project</text>
+  <text x="360" y="391" text-anchor="middle" font-size="10.5" fill="#fff5e0">49 152-d to 256-d per slice token | 12.6M params</text>
+
+  <!-- Arrow 5-6 -->
+  <line x1="360" y1="404" x2="360" y2="420" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 6: [CLS] + Positional Embedding (trainable/orange) -->
+  <!-- ================================================================ -->
+  <rect x="175" y="424" width="370" height="52" rx="8" fill="url(#gTrain)" filter="url(#shadow)"/>
+  <text x="360" y="446" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">[CLS] + Positional Embedding</text>
+  <text x="360" y="463" text-anchor="middle" font-size="10.5" fill="#fff5e0">learnable CLS token, scaled ordinal positions</text>
+
+  <!-- Arrow 6-7 -->
+  <line x1="360" y1="476" x2="360" y2="492" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 7: ViT Encoder (trainable/orange) -->
+  <!-- ================================================================ -->
+  <rect x="155" y="496" width="410" height="62" rx="8" fill="url(#gTrain)" filter="url(#shadow)"/>
+  <text x="360" y="519" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">ViT Encoder</text>
+  <text x="360" y="536" text-anchor="middle" font-size="10.5" fill="#fff5e0">5 layers, 20 heads, 256-d, 512-d MLP</text>
+  <text x="360" y="551" text-anchor="middle" font-size="10" fill="#f5e4c0">~37M params</text>
+
+  <!-- Arrow 7-8 -->
+  <line x1="360" y1="558" x2="360" y2="574" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 8: Classification Head (trainable/orange) -->
+  <!-- ================================================================ -->
+  <rect x="195" y="578" width="330" height="52" rx="8" fill="url(#gTrain)" filter="url(#shadow)"/>
+  <text x="360" y="600" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">Classification Head</text>
+  <text x="360" y="617" text-anchor="middle" font-size="10.5" fill="#fff5e0">LayerNorm, Linear(256, 1) | 0.25M params</text>
+
+  <!-- Arrow 8-9 -->
+  <line x1="360" y1="630" x2="360" y2="646" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ================================================================ -->
+  <!-- STEP 9: P(glaucoma) output (green) -->
+  <!-- ================================================================ -->
+  <rect x="255" y="650" width="210" height="44" rx="22" fill="url(#gOut)" filter="url(#shadow)"/>
+  <text x="360" y="677" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">P(glaucoma)</text>
+
+  <!-- ================================================================ -->
+  <!-- LEGEND -->
+  <!-- ================================================================ -->
+  <rect x="130" y="712" width="460" height="28" rx="6" fill="#f0f0f0" stroke="#ddd" stroke-width="0.8"/>
+
+  <!-- Blue / Frozen -->
+  <rect x="148" y="719" width="14" height="14" rx="3" fill="url(#gFrozen)"/>
+  <text x="167" y="730" font-size="10.5" fill="#444">Frozen / Pretrained</text>
+
+  <!-- Orange / Trainable -->
+  <rect x="282" y="719" width="14" height="14" rx="3" fill="url(#gTrain)"/>
+  <text x="301" y="730" font-size="10.5" fill="#444">Trainable</text>
+
+  <!-- Purple / Data -->
+  <rect x="372" y="719" width="14" height="14" rx="3" fill="url(#gData)"/>
+  <text x="391" y="730" font-size="10.5" fill="#444">Data</text>
+
+  <!-- Green / Output -->
+  <rect x="436" y="719" width="14" height="14" rx="3" fill="url(#gOut)"/>
+  <text x="455" y="730" font-size="10.5" fill="#444">Output</text>
+
+  <!-- Step numbers along left edge -->
+  <g font-size="11" fill="#999" font-weight="600" text-anchor="end">
+    <text x="182" y="83">1</text>
+    <text x="182" y="155">2</text>
+    <text x="182" y="227">3</text>
+    <text x="132" y="300">4</text>
+    <text x="162" y="381">5</text>
+    <text x="162" y="453">6</text>
+    <text x="142" y="530">7</text>
+    <text x="182" y="607">8</text>
+    <text x="242" y="677">9</text>
+  </g>
+</svg>
