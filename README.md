@@ -30,23 +30,15 @@ Glaucoma subset of [Harvard FairVision](https://github.com/Harvard-Ophthalmology
 
 ## Architecture details
 
-```
-OCT Volume (200x200x200)
-  -> Sample N slices uniformly (we tested 32, 64, 100)
-  -> Resize each to 256x256, convert grayscale to 3-channel
-  -> Tile vertically into one tall image: 3 x (Nx256) x 256
-  -> ConvNeXt-Tiny (ImageNet -> Kermany OCT pretrained)
-  -> N feature maps of 768x64 each
-  -> Linear projection: 49152-d -> 256-d per token
-  -> ViT encoder (5 layers, 20 heads, dim_head=64, mlp_dim=512)
-  -> CLS token -> LayerNorm -> Linear(256, 1) -> logit
-```
+![Pipeline](results/pipeline.svg)
 
-Total: 77.8M params (27.8M ConvNeXt, 50M ViT + projections + head).
+Total: 77.8M params (27.8M ConvNeXt, 50M ViT + projections + head). See [full architecture breakdown](docs/architecture.md).
 
 Since `vit_dim=256` doesn't divide evenly by 20 heads, each transformer block needs projection layers (256 to 1280 and back), accounting for ~33M of the 50M trainable params. Switching to 16 heads would eliminate these and drop trainable params to ~15M.
 
 ## Results
+
+![Test AUC](results/test_auc_comparison.png)
 
 ### Phase 1: Frozen feature extractor, train ViT + head only
 
@@ -54,6 +46,8 @@ Since `vit_dim=256` doesn't divide evenly by 20 heads, each transformer block ne
 |-----|--------|-----------------|---------|-----------|---------|----------|------------|
 | 1 | 32 | 5e-5 / 5e-5 | 0.0 | 16 | 0.831 | N/A | 6 |
 | 2 | 32 | 2e-5 / 1e-4 | 0.0 | 16 | 0.832 | N/A | 6 |
+
+[Detailed Phase 1 analysis](docs/experiments/phase1)
 
 ### Phase 2: Full fine-tuning, all parameters trainable
 
@@ -63,6 +57,8 @@ Since `vit_dim=256` doesn't divide evenly by 20 heads, each transformer block ne
 | 4 | 64 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 1 | N/A | 4 | 0.841 | 0.868 | 6 |
 | 5 | 64 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 2 | 2 | 16 | 0.845 | 0.866 | 9 |
 | 6 | 32 | 1e-6 / 5e-6 / 5e-5 | 0.15 | 2 | 2 | 16 | 0.840 | 0.864 | 7 |
+
+[Detailed Phase 2 analysis](docs/experiments/phase2)
 
 ## What we tried and why
 
@@ -130,6 +126,14 @@ configs/
 
 scripts/
   download_hf.py     Downloads the dataset from HuggingFace
+
+docs/
+  architecture.md    Full architecture breakdown and parameter analysis
+  experiments/       Detailed per-run analysis and training curves
+    phase1/          Frozen ConvNeXt experiments (Runs 1-2)
+    phase2/          Full fine-tuning experiments (Runs 3-6)
+
+results/             Comparison charts and training data
 ```
 
 ## What's next
